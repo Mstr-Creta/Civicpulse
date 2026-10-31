@@ -66,4 +66,9 @@ In Docker Compose, the API connects to Ollama on the host at `host.docker.intern
 - Campaign pledges do not transfer money.
 - The app is independent of municipal agencies and does not submit reports to them.
 
-See [PRODUCT.md](PRODUCT.md) for product goals and [DESIGN.md](DESIGN.md) for design notes.
+MIT License
+Copyright (c) 2026 Creta
+
+
+
+
