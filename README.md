@@ -66,8 +66,11 @@ In Docker Compose, the API connects to Ollama on the host at `host.docker.intern
 - Campaign pledges do not transfer money.
 - The app is independent of municipal agencies and does not submit reports to them.
 
-MIT License
-Copyright (c) 2026 Creta
+## License
+
+CivicPulse is licensed under the MIT License.
+See the [LICENSE](LICENSE) file for details.
+
 
 
 
