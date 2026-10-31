@@ -3,6 +3,7 @@
 **See what needs attention.** CivicPulse is a mobile-friendly civic issue board for reporting neighborhood problems, following community activity, and organizing follow-up.
 
 > **Demo notice:** Sample Bhubaneswar reports and images are illustrative, not verified evidence. Campaign contributions are pledge intents only; no money is collected. Names are self-reported.
+## Vercel - https://civicpulse-ashy.vercel.app
 
 ## Features
 
