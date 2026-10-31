@@ -99,45 +99,6 @@ Pydantic validates fields → AI-suggested response, human review required
 
 In Docker Compose, the API reaches Ollama at `host.docker.internal:11434`. Keep Ollama local for development; do not expose its unauthenticated port to the public internet.
 
-## Deployment choices
-
-### Free and convenient demo: Vercel frontend only
-
-Vercel Hobby is free for personal, non-commercial projects and offers a simple Git-based Next.js deployment. This option publishes the frontend and sample content; it does **not** host the FastAPI/PostGIS/Ollama stack. With no reachable API configured, report and campaign changes use browser-local storage, and Gemma is not available to remote visitors. Vercel describes Hobby as personal/non-commercial use and may pause projects after included free usage is exceeded ([plans](https://vercel.com/docs/plans), [pricing](https://vercel.com/pricing)).
-
-1. Push this project to a GitHub repository.
-2. In Vercel, import the repository and choose the folder containing this `package.json` as the project root.
-3. Let Vercel detect Next.js and deploy. For the sample-only demo, leave `NEXT_PUBLIC_API_URL` unset.
-4. Open the generated `*.vercel.app` URL and confirm the sample issue board loads.
-
-This is the recommended first public demo if a zero-cost, low-setup share link is the priority. It is not a shared-data deployment; the area lookup and Gemma summary require the API to be reachable.
-
-### Full interactive version: DigitalOcean Droplet + Vercel
-
-To make reports/campaigns shared and use Gemma remotely, the API, PostGIS database, and Ollama model need a reachable server. DigitalOcean App Platform's free tier is for static sites; container services are paid. Basic Droplets currently start at $4/month, while the 8 GiB / 4 vCPU Basic plan is listed at $48/month ([App Platform pricing](https://docs.digitalocean.com/products/app-platform/details/pricing/), [Droplet pricing](https://www.digitalocean.com/pricing/droplets)). For this stack, 8 GiB is a practical starting point for `gemma3:4b` plus the OS, API, and database; CPU-only inference may be slower than your local machine. Prices can change.
-
-1. Push the project to GitHub. Create an Ubuntu Droplet with at least 8 GiB RAM, attach a domain, and allow only SSH plus HTTP/HTTPS at the cloud firewall.
-2. Install Docker Engine and the Docker Compose plugin using DigitalOcean's current Ubuntu instructions.
-3. Install Ollama on the Droplet and pull `gemma3:4b`:
-
-   ```bash
-   ollama pull gemma3:4b
-   ```
-
-4. Configure Ollama to listen on the Docker host gateway (`OLLAMA_HOST=0.0.0.0:11434`) and restart its service. Keep port `11434` blocked from public ingress in both the host and cloud firewalls; the Compose API uses the host gateway internally.
-5. Clone the repository on the Droplet. Create a production `.env` file (do not commit it):
-
-   ```dotenv
-   POSTGRES_PASSWORD=replace-with-a-long-random-secret
-   OLLAMA_MODEL=gemma3:4b
-   CORS_ORIGINS=https://your-project.vercel.app
-   ```
-
-6. Run `docker compose up -d --build`. Put a TLS reverse proxy such as Caddy in front of the API, and publish the API at an HTTPS URL. Do not expose PostgreSQL or Ollama publicly.
-7. Import the Next.js frontend to Vercel. Add `NEXT_PUBLIC_API_URL=https://api.your-domain.example` to its Production environment and redeploy. The API's `CORS_ORIGINS` must exactly include the deployed frontend origin.
-8. Check `https://api.your-domain.example/health`, then submit a report and campaign from the frontend. Gemma will only be exercised once the report UI is wired to `/api/v1/triage`.
-
-This is **not a free deployment**. It also needs basic Linux administration, TLS, backups for the Docker database volume, monitoring, and careful firewall configuration. Do not use the example database credentials in production.
 
 ## Current boundaries and next steps
 
