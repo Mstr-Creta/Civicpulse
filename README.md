@@ -1,111 +1,68 @@
 # CivicPulse
 
-**See what needs attention.** CivicPulse is an independent, mobile-first civic issue board for reporting neighborhood problems, following community activity, and organizing transparent follow-up.
+**See what needs attention.** CivicPulse is a mobile-friendly civic issue board for reporting neighborhood problems, following community activity, and organizing follow-up.
 
-> **Preview status:** This is an MVP/demo. The Bhubaneswar reports and photos are illustrative examples, not verified reports. The displayed pledge flow records intent only; it does not move money. User names are self-reported. AI output is not currently connected to the report form.
+> **Demo notice:** Sample Bhubaneswar reports and images are illustrative, not verified evidence. Campaign contributions are pledge intents only; no money is collected. Names are self-reported.
 
-## Why CivicPulse
+## Features
 
-Residents often see potholes, blocked drains, waterlogging, waste, or broken streetlights but have no shared place to record evidence, see whether neighbors have observed the same problem, or track a next step. CivicPulse is designed to connect that journey:
+- Browse sample civic issues on a map and board; view status updates and copy an escalation draft.
+- Submit reports with optional browser geolocation. Reports use the API when available and otherwise stay in the current browser.
+- Create campaigns and view supporters and thank-you notes. Pledges do not process payments.
+- Look up an area and possible civic authority using OpenStreetMap and linked official sources.
+- Optional Gemma summaries of retrieved civic information.
 
-**Report → AI suggestion → community verification → source-backed follow-up → status tracking → optional community pledge**
+## Tech stack
 
-The MVP focuses on one sample city, Bhubaneswar, Odisha. It is independent of municipal agencies.
+- Frontend: Next.js 15, React 19, TypeScript, Leaflet
+- API: Python, FastAPI, Pydantic, HTTPX
+- Data: PostgreSQL with PostGIS, SQLAlchemy
+- Local AI: Ollama with `gemma3:4b` by default
+- Local services: Docker Compose
 
-## What works in this preview
+## Run locally (Windows)
 
-- Responsive map and issue board with three clearly labeled Bhubaneswar sample reports, each with an illustrative image.
-- Issue detail, a sample status timeline, device-local confirmations, and a factual escalation draft users can copy.
-- Report form with optional browser geolocation; issues are saved to the API when available, otherwise to that browser.
-- Campaign creation for the sample community-verified issue, public supporter ledger, and automatic thank-you notes. These are pledge intents, not donations.
-- Location-based authority lookup: user-triggered OpenStreetMap reverse geocoding, sourced Bhubaneswar civic contacts, and an optional Gemma source summary.
-- FastAPI routes for issues, campaigns, pledge intents, text triage, and area/authority lookup.
-
-## Technology
-
-| Area | Stack |
-|---|---|
-| Frontend | Next.js 15, React 19, TypeScript, CSS, Leaflet / React Leaflet |
-| API | Python, FastAPI, Pydantic, HTTPX |
-| Data | PostgreSQL with PostGIS, SQLAlchemy |
-| Local AI | Ollama with `gemma3:4b` (configurable) |
-| Local services | Docker Compose |
-
-## Run locally on Windows
-
-Prerequisites: Node.js 22, Docker Desktop, and Ollama. Install Gemma in Ollama if you have not already:
+Prerequisites: Node.js 22, Docker Desktop, and Ollama. Pull the model if needed:
 
 ```powershell
 ollama pull gemma3:4b
 ```
 
-From this project folder, start the database and API:
+In the project folder, start the API and database:
 
 ```powershell
 Copy-Item .env.example .env
 docker compose up --build
 ```
 
-In a second PowerShell window, start the frontend:
+In a second terminal, start the web app:
 
 ```powershell
 npm install
 npm run dev
 ```
 
-Open <http://localhost:3000>. The API health check is at <http://localhost:8000/health> and interactive API docs are at <http://localhost:8000/docs>.
+Open <http://localhost:3000>. API health: <http://localhost:8000/health>. API docs: <http://localhost:8000/docs>.
 
-If area lookup says the API is unreachable, leave `docker compose up --build` running and confirm `http://localhost:8000/health` returns `{"status":"ok"}`. If you open the frontend as `http://127.0.0.1:3000`, include that exact origin in `CORS_ORIGINS` in `.env`, then restart Compose. If the result loads but its Gemma note is missing, the official source links can still be used; start Ollama and check `OLLAMA_MODEL` if you want the AI summary.
+To use a different Ollama model, set `OLLAMA_MODEL` in `.env` and restart the API. Keep `.env` private; it is ignored by Git.
 
-To use a different Ollama model, set `OLLAMA_MODEL` in `.env` to a model you have pulled, then restart the API. For a private local deployment, replace the example database password in `.env` with a unique password.
+## How Gemma is used
 
-## Gemma: what is implemented
+The FastAPI backend has two AI-related endpoints:
 
-The FastAPI backend exposes `POST /api/v1/triage`. It accepts a report description and optional location context. The triage service sends a prompt to Ollama's `/api/chat` endpoint with `OLLAMA_MODEL` (default `gemma3:4b`), non-streaming output, and JSON mode. It requests a neutral title, cleaned description, category, severity, and confidence, then validates the response against a Pydantic schema. Results are explicitly labelled `AI-suggested` and default to requiring human review. If Ollama is unavailable, the API returns a service error; if the model's response cannot be validated, it returns a bad-gateway error.
+- `POST /api/v1/triage` sends a report description to Ollama and asks Gemma for a suggested title, cleaned description, category, and severity. The result is validated and marked for human review. **The browser report form does not currently call this endpoint.**
+- `POST /api/v1/area-lookup` reverse-geocodes coordinates with OpenStreetMap, fetches allowlisted official pages, and can ask Gemma to summarize the retrieved text. The source links are shown to users; Gemma does not independently search the internet or identify a specific worker.
 
-**Important implementation gap:** The browser report form does not call `/api/v1/triage`; it saves a user-authored report directly. The new, user-triggered `/api/v1/area-lookup` reverse-geocodes the point, fetches allowlisted official pages, and asks Gemma to summarize retrieved page text plus reviewed fallback facts. Gemma does not search the web itself, choose an employee, or establish responsibility. Although Gemma 3 can accept image input through Ollama, current requests contain no images. Report photos are not uploaded or analyzed. The three bundled demo photos are generated illustrative images, not evidence.
+The area lookup is user-triggered and rate-limited/cached. It offers Bhubaneswar civic contacts only when the location matches the supported area. Users should verify responsibility with the linked official portals. If Ollama or a source page is unavailable, the lookup may return without an AI summary.
 
-The area lookup reverse-geocodes a supplied coordinate through OpenStreetMap Nominatim, then offers BMC as a *possible starting point* only if the result resolves to Bhubaneswar. It fetches allowlisted Sahar Sathi and BMC citizen-services pages, caches the page text for six hours, and gives the retrieved source text to Gemma for a constrained summary. The actual linked sources remain visible as the evidence; if a page cannot be fetched, the UI says so and falls back to reviewed contact facts. Nominatim lookups are user-triggered and cached for 24 hours, with a one-request-per-second process limit and visible attribution/policy link. No ward or individual worker is inferred; users are told to verify jurisdiction on the linked official portals.
+In Docker Compose, the API connects to Ollama on the host at `host.docker.internal:11434`. Do not expose Ollama's unauthenticated port to the public internet.
 
-The same lookup is available directly through `POST /api/v1/area-lookup` with `description`, `category`, `latitude`, and `longitude`. For example:
+## Demo limitations
 
-```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/v1/area-lookup `
-  -ContentType 'application/json' `
-  -Body '{"description":"Water pooling along the road after rain","category":"Drainage","latitude":20.2915,"longitude":85.8317}'
-```
+- Sample reports, map pins, and photos are illustrative, not verified reports or evidence.
+- AI triage is an API feature and is not yet integrated into report submission. Photos are not uploaded or analyzed.
+- Confirmations are stored on the device. User identities are not verified.
+- Campaign pledges do not transfer money.
+- The app is independent of municipal agencies and does not submit reports to them.
 
-### Local AI request path
-
-```text
-Browser report form ── currently does not call AI
-
-User-triggered area lookup
-       ↓ POST /api/v1/area-lookup
-OpenStreetMap Nominatim reverse lookup + allowlisted official source pages
-       ↓
-Gemma summarizes supplied facts (optional; links remain the evidence)
-       ↓
-Area + possible authority + official citations + AI-suggested summary
-
-API client / future UI integration
-       ↓ POST /api/v1/triage
-FastAPI validates request
-       ↓ HTTP POST /api/chat (JSON response mode)
-Ollama running on your machine
-       ↓ Gemma 3 response
-Pydantic validates fields → AI-suggested response, human review required
-```
-
-In Docker Compose, the API reaches Ollama at `host.docker.internal:11434`. Keep Ollama local for development; do not expose its unauthenticated port to the public internet.
-
-
-## Current boundaries and next steps
-
-- No login, verified identities, real media uploads, push/email notifications, municipal integrations, or official source ingestion yet.
-- The report form does not invoke AI triage yet; the backend endpoint is API-only.
-- Community confirmations are device-local in this preview, and campaign eligibility is demonstrated with sample data.
-- Pledge amounts are intents. No funds are collected or held, and contributor identities are not verified.
-- The map uses OpenStreetMap tiles and illustrative pins; sample image captions explicitly say they are not evidence.
-
-See the separate submission guide for the product story, use case, demo flow, honest claims, and future scope.
+See [PRODUCT.md](PRODUCT.md) for product goals and [DESIGN.md](DESIGN.md) for design notes.
